@@ -14,8 +14,10 @@ class Info(Resource):
     def get(self):
         # We can now access our sqlalchemy User object via `current_user`.
         return jsonify(
-            id=current_user.id,
+            no=current_user.no,
+            fullname=current_user.fullname,
             username=current_user.username,
+            user_id=current_user.user_id,
         )
 
 class SignIn(Resource):
@@ -27,7 +29,7 @@ class SignIn(Resource):
     parser.add_argument('password', type=str, required=True, help='This field cannot be left blank')
 
     def post(self):
-        data = Admin.parser.parse_args()
+        data = SignIn.parser.parse_args()
         username = data['username']
         password = data['password']
 
