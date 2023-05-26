@@ -2,7 +2,7 @@ import json
 from flask import Flask
 from flask_restful import Resource
 from flask_jwt_extended import  jwt_required
-from models import Admin, Ban, Group, Pair, Project, Setting, User, Warn, GroupUser
+from models import Ban, Group, Project, User, GroupUser
 from util.logz import create_logger
 
 app = Flask(__name__)
