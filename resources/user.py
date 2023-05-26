@@ -1,10 +1,10 @@
-from flask import Flask
+from flask import jsonify
 from flask_restful import Resource
 from flask_jwt_extended import  jwt_required
+from sqlalchemy import func
 from models import Ban, Group, Project, User, GroupUser
 from util.logz import create_logger
-
-app = Flask(__name__)
+from helpers.list_to_json import list_to_json
 
 class GetUserList(Resource):
     def __init__(self):
@@ -12,18 +12,9 @@ class GetUserList(Resource):
 
     @jwt_required()
     def get(self):
-        results = []
-        users = User.query.order_by(User.no.desc()).all()
-        for user in users:
-            shill_count = Project.query.filter_by(user_id=user.user_id).count()
-            data = {
-                "fullname": user.fullname,
-                "username": user.username,
-                "user_id": user.user_id,
-                "shills": shill_count
-            }
-            results.append(data)
-        return results
+        result = User.query.with_entities(User.username, User.fullname, User.user_id, func.count(Project.no).label('shills')).join(Project, Project.user_id==User.user_id).group_by(User.user_id).all()
+        # return list_to_json(result)
+        print(result)
     
 class GetUserGroups(Resource):
     def __init__(self) -> None:
