@@ -2,6 +2,7 @@ from flask import Flask
 from flask_jwt_extended import JWTManager
 from flask_restful import Api
 from resources.admin import SignIn, Info, Admin
+from resources.user import GetUserList, GetUserGroups, GetUserShill, GetUserBan
 from config import sql_config
 from helpers import admin_mysql
 
@@ -31,6 +32,9 @@ with app.app_context():
 
 api.add_resource(SignIn, '/api/signin')
 api.add_resource(Info, '/api/info')
-
+api.add_resource(GetUserList, '/api/users')
+api.add_resource(GetUserGroups, '/api/user/<string:user_id>/groups')
+api.add_resource(GetUserShill, '/api/user/<string:user_id>/shills')
+api.add_resource(GetUserBan, '/api/user/<string:user_id>/banned')
 if __name__ == '__main__':
     app.run(debug=True)  # important to mention debug=True
