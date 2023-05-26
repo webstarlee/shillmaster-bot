@@ -2,6 +2,8 @@ from flask_restful import Resource, reqparse
 from flask_jwt_extended import jwt_required, current_user
 from util.logz import create_logger
 from models import Group, GroupUser, User, GroupUser, Project, Ban
+from db import db
+import json
 
 class GetGroupList(Resource):
     def __init__(self):
@@ -31,16 +33,11 @@ class GetUsersByGroup(Resource):
         
     @jwt_required()
     def get(self, group_id : str):
-        users = GroupUser.query.filter_by(group_id=group_id).all()
-        res=[]
-        for user in users:
-            userinfo = User.query.filter_by(user_id=user.user_id).first()
-            res.append({
-                "fullname" : userinfo.fullname,
-                "username" : userinfo.username,
-                "user_id"  : userinfo.user_id
-            })
-        return res 
+        users=db.session.query(Group, GroupUser, User).filter(Group.group_id==GroupUser.group_id).filter(GroupUser.user_id==User.user_id).filter(Group.group_id==group_id).all()
+
+        print(users)
+       
+        return False
         
 class GetShillsByGroup(Resource):
     def __init__(self):
