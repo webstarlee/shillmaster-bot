@@ -1,4 +1,3 @@
-import json
 from flask import Flask
 from flask_restful import Resource
 from flask_jwt_extended import  jwt_required
@@ -34,11 +33,10 @@ class GetUserGroups(Resource):
         result = []
         group_ids = GroupUser.query.filter_by(user_id=user_id).all()
         for id in group_ids:
-            group_list = Group.query.filter_by(group_id=id.group_id).all()
-            for group in group_list:
-                result.append({
-                    "group": group.title
-                })
+            group_list = Group.query.filter_by(group_id=id.group_id).first().title
+            result.append({
+                "group": group_list
+            })
         return result
         
 class GetUserShill(Resource):
@@ -64,9 +62,8 @@ class GetUserBan(Resource):
         result = []
         banned = Ban.query.filter_by(user_id=user_id).all()
         for ban in banned:
-            groups = Group.query.filter_by(group_id=ban.group_id).all()
-            for group in groups:            
-                result.append({
-                    "Banned Group": group.title
-                })  
+            groups = Group.query.filter_by(group_id=ban.group_id).first().title
+            result.append({
+                "Banned Group": groups
+            })  
         return result
