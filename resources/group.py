@@ -29,13 +29,9 @@ class GetUsersByGroup(Resource):
     def __init__(self):
         self.logger = create_logger()
         
-    parser = reqparse.RequestParser()
-    parser.add_argument('no', type=str, required=True, location=['headers', 'values'], help='This field cannot be left blank')
-
     @jwt_required()
-    def post(self):
-        req = GetUsersByGroup.parser.parse_args()
-        users = GroupUser.query.filter_by(group_id=req["no"]).all()
+    def get(self, group_id : str):
+        users = GroupUser.query.filter_by(group_id=group_id).all()
         res=[]
         for user in users:
             userinfo = User.query.filter_by(user_id=user.user_id).first()
@@ -49,14 +45,10 @@ class GetUsersByGroup(Resource):
 class GetShillsByGroup(Resource):
     def __init__(self):
         self.logger = create_logger()
-        
-    parser = reqparse.RequestParser()
-    parser.add_argument('no', type=str, required=True, location=['headers', 'values'], help='This field cannot be left blank')
-
+    
     @jwt_required()
-    def post(self):
-        req = GetShillsByGroup.parser.parse_args()
-        projects = Project.query.filter_by(group_id=req["no"]).all()
+    def get(self, group_id : str):
+        projects = Project.query.filter_by(group_id=group_id).all()
         res=[]
         for project in projects:
             res.append({
@@ -67,14 +59,11 @@ class GetShillsByGroup(Resource):
 class GetBannedUsersByGroup(Resource):
     def __init__(self):
         self.logger = create_logger()
-        
-    parser = reqparse.RequestParser()
-    parser.add_argument('no', type=str, required=True, location=['headers', 'values'], help='This field cannot be left blank')
-    
+            
     @jwt_required()
-    def post(self):
-        req = GetUsersByGroup.parser.parse_args()
-        users = Ban.query.filter_by(group_id=req["no"]).all()
+    def get(self, group_id : str):
+
+        users = Ban.query.filter_by(group_id=group_id).all()
         res=[]
         for user in users:
             userinfo = User.query.filter_by(user_id=user.user_id).first()

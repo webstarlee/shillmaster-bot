@@ -33,9 +33,9 @@ with app.app_context():
 api.add_resource(SignIn, '/api/signin')
 api.add_resource(Info, '/api/info')
 api.add_resource(GetGroupList, '/api/groups')
-api.add_resource(GetUsersByGroup, '/api/group/users')
-api.add_resource(GetShillsByGroup, '/api/group/shills')
-api.add_resource(GetBannedUsersByGroup, '/api/group/ban/users')
+api.add_resource(GetUsersByGroup, '/api/group/<string:group_id>/users')
+api.add_resource(GetShillsByGroup, '/api/group/<string:group_id>/shills')
+api.add_resource(GetBannedUsersByGroup, '/api/group/<string:group_id>/ban/users')
 
 if __name__ == '__main__':
     app.run(debug=True)  # important to mention debug=True
