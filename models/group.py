@@ -9,7 +9,7 @@ class Group(db.Model):
     group_id = db.Column(db.String(80), unique=True)
 
     def __repr__(self):
-        return '<Group %r>' % self.title
+        return '<Group %r>' % self.group_id
 
 class GroupUser(db.Model):
     __tablename__ = 'group_users'
