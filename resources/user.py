@@ -6,6 +6,7 @@ from flask_jwt_extended import jwt_required
 from models import GroupUser, Group, Project, User, Ban, Task
 from util.encoder import AlchemyEncoder
 from util.logz import create_logger
+from util.msg import MSG_FIELD_DEFAULT
 
 class GetUserList(Resource):
     def __init__(self):
@@ -198,8 +199,8 @@ class SetUserUnban(Resource):
         self.logger = create_logger()
 
     parser = reqparse.RequestParser()
-    parser.add_argument('user_id', type=str, required=True, help='This field cannot be left blank')
-    parser.add_argument('group_id', type=str, required=True, help='This field cannot be left blank')
+    parser.add_argument('user_id', type=str, required=True, help=MSG_FIELD_DEFAULT)
+    parser.add_argument('group_id', type=str, required=True, help=MSG_FIELD_DEFAULT)
     
     @jwt_required()
     def post(self):
@@ -230,8 +231,8 @@ class SetUserBan(Resource):
         self.logger = create_logger()
 
     parser = reqparse.RequestParser()
-    parser.add_argument('user_id', type=str, required=True, help='This field cannot be left blank')
-    parser.add_argument('group_id', type=str, required=True, help='This field cannot be left blank')
+    parser.add_argument('user_id', type=str, required=True, help=MSG_FIELD_DEFAULT)
+    parser.add_argument('group_id', type=str, required=True, help=MSG_FIELD_DEFAULT)
     
     @jwt_required()
     def post(self):

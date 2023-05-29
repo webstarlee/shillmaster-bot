@@ -1,41 +1,49 @@
 import json
+from db import db, func, and_
 from flask_restful import Resource, reqparse
 from flask import jsonify
-from flask_jwt_extended import create_access_token, jwt_required, current_user
-from models import Admin, Ban, Group, Pair, Project, Setting, User, Warn
+from flask_jwt_extended import jwt_required
+from models import Project, Group, GroupUser
 from util.encoder import AlchemyEncoder
 from util.logz import create_logger
 
-class Info(Resource):
+class GetGroupList(Resource):
     def __init__(self):
         self.logger = create_logger()
 
     @jwt_required()  # Requires dat token
     def get(self):
-        # We can now access our sqlalchemy User object via `current_user`.
-        return jsonify(
-            no=current_user.no,
-            fullname=current_user.fullname,
-            username=current_user.username,
-            user_id=current_user.user_id,
+        project_query = (
+            db.session.query(
+                Project.group_id,
+                func.count(Project.group_id).label("shill_count")
+            )
+            .group_by(Project.group_id)
+            .subquery()
         )
-
-class SignIn(Resource):
-    def __init__(self):
-        self.logger = create_logger()
-
-    parser = reqparse.RequestParser()
-    parser.add_argument('username', type=str, required=True, help='This field cannot be left blank')
-    parser.add_argument('password', type=str, required=True, help='This field cannot be left blank')
-
-    def post(self):
-        data = SignIn.parser.parse_args()
-        username = data['username']
-        password = data['password']
-
-        user = Admin.query.filter_by(username=username).one_or_none()
-        if not user or not user.check_password(password):
-            return {'message': 'Wrong username or password.'}, 401
         
-        access_token = create_access_token(identity=user)
-        return jsonify(access_token=access_token)
+        user_query = (
+            db.session.query(
+                GroupUser.group_id,
+                func.count(GroupUser.group_id).label("user_count")
+            )
+            .group_by(GroupUser.group_id)
+            .subquery()
+        )
+        
+        query = (
+            db.session.query(Group, project_query.c.shill_count, user_query.c.user_count)
+            .outerjoin(project_query, Group.group_id == project_query.c.group_id)
+            .outerjoin(user_query, Group.group_id == user_query.c.group_id)
+        )
+        
+        results = query.all()
+        json_output = []
+        for result in results:
+            single_json = json.dumps(result[0], cls=AlchemyEncoder)
+            decoded_json = json.loads(single_json)
+            decoded_json['shills'] = result[1]
+            decoded_json['users'] = result[2]
+            json_output.append(decoded_json)
+
+        return jsonify(json_output)
