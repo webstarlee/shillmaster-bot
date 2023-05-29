@@ -3,7 +3,7 @@ from flask_jwt_extended import JWTManager
 from flask_restful import Api
 from models import Admin
 from datetime import timedelta
-from resources import SignIn, Info, GetUserList, GetUserGroupList
+import resources
 from config import sql_config
 from helpers import admin_mysql
 
@@ -32,10 +32,12 @@ with app.app_context():
     db.create_all()
     admin_mysql()
 
-api.add_resource(SignIn, '/api/signin')
-api.add_resource(Info, '/api/info')
-api.add_resource(GetUserList, '/api/users')
-api.add_resource(GetUserGroupList, '/api/user/<user_id>/groups')
+api.add_resource(resources.SignIn, '/api/signin')
+api.add_resource(resources.Info, '/api/info')
+api.add_resource(resources.GetUserList, '/api/users')
+api.add_resource(resources.GetUserGroupList, '/api/user/<user_id>/groups')
+api.add_resource(resources.GetUserShillList, '/api/user/<user_id>/shills')
+api.add_resource(resources.GetUserBannedGroupList, '/api/user/<user_id>/bans')
 
 if __name__ == '__main__':
     app.run(debug=True)  # important to mention debug=True

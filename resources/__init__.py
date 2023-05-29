@@ -1,2 +1,2 @@
 from .admin import Info, SignIn
-from .user import GetUserList, GetUserGroupList
+from .user import GetUserList, GetUserGroupList, GetUserShillList, GetUserBannedGroupList
