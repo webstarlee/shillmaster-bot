@@ -36,7 +36,7 @@ class GetUserList(Resource):
             json_output.append(decoded_json)
 
         return jsonify(json_output)
- 
+
 class GetUserGroupList(Resource):
     def __init__(self):
         self.logger = create_logger()

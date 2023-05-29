@@ -43,6 +43,7 @@ api.add_resource(resources.SetUserUnban, '/api/user/unban')
 api.add_resource(resources.SetUserBan, '/api/user/ban')
 # Group api part
 api.add_resource(resources.GetGroupList, '/api/groups')
+api.add_resource(resources.GetGroupUserList, '/api/group/<group_id>/users')
 
 if __name__ == '__main__':
     app.run(debug=True)  # important to mention debug=True
