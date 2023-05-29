@@ -1,9 +1,9 @@
 import json
 from db import db, func, and_
-from flask_restful import Resource, request, reqparse
+from flask_restful import Resource, reqparse
 from flask import jsonify
 from flask_jwt_extended import jwt_required
-from models import GroupUser, Group, Project, User, Ban
+from models import GroupUser, Group, Project, User, Ban, Task
 from util.encoder import AlchemyEncoder
 from util.logz import create_logger
 
@@ -192,3 +192,69 @@ class GetUserBannedGroupList(Resource):
             json_output.append(single_json)
 
         return jsonify(json_output)
+    
+class SetUserUnban(Resource):
+    def __init__(self):
+        self.logger = create_logger()
+
+    parser = reqparse.RequestParser()
+    parser.add_argument('user_id', type=str, required=True, help='This field cannot be left blank')
+    parser.add_argument('group_id', type=str, required=True, help='This field cannot be left blank')
+    
+    @jwt_required()
+    def post(self):
+        data = SetUserUnban.parser.parse_args()
+        user_id = data['user_id']
+        group_id = data['group_id']
+
+        ban = Ban.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+        if not ban:
+            return {'message': 'Wrong username or password.'}, 401
+        
+        exist_task = Task.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+        if not exist_task:
+            new_task = Task(
+                task="unban",
+                user_id=user_id,
+                group_id=group_id
+            )
+            db.session.add(new_task)
+            db.session.commit()
+            
+            return {"result": "success"}
+        
+        return {"result": "already exist task"}
+
+class SetUserBan(Resource):
+    def __init__(self):
+        self.logger = create_logger()
+
+    parser = reqparse.RequestParser()
+    parser.add_argument('user_id', type=str, required=True, help='This field cannot be left blank')
+    parser.add_argument('group_id', type=str, required=True, help='This field cannot be left blank')
+    
+    @jwt_required()
+    def post(self):
+        data = SetUserUnban.parser.parse_args()
+        user_id = data['user_id']
+        group_id = data['group_id']
+
+        ban = Ban.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+        if not ban:
+            is_group_user = GroupUser.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+            if not is_group_user:
+                return {"result": "error", "msg": "It is not Group User"}
+            
+            exist_task = Task.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+            if not exist_task:
+                new_task = Task(
+                    task="ban",
+                    user_id=user_id,
+                    group_id=group_id
+                )
+                db.session.add(new_task)
+                db.session.commit()
+                
+                return {"result": "success"}
+        
+        return {"result": "error", "msg": "Already exist task"}

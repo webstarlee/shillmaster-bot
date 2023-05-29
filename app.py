@@ -38,6 +38,8 @@ api.add_resource(resources.GetUserList, '/api/users')
 api.add_resource(resources.GetUserGroupList, '/api/user/<user_id>/groups')
 api.add_resource(resources.GetUserShillList, '/api/user/<user_id>/shills')
 api.add_resource(resources.GetUserBannedGroupList, '/api/user/<user_id>/bans')
+api.add_resource(resources.SetUserUnban, '/api/user/unban')
+api.add_resource(resources.SetUserBan, '/api/user/ban')
 
 if __name__ == '__main__':
     app.run(debug=True)  # important to mention debug=True

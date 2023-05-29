@@ -6,3 +6,4 @@ from .setting import Setting
 from .ban import Ban
 from .group import Group, GroupUser
 from .warn import Warn
+from .task import Task
