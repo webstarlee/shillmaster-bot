@@ -1,7 +1,9 @@
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from flask_restful import Api
-from resources.admin import SignIn, Info, Admin
+from models import Admin
+from datetime import timedelta
+from resources import SignIn, Info, GetUserList
 from config import sql_config
 from helpers import admin_mysql
 
@@ -9,6 +11,7 @@ app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = sql_config
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 # Setup the Flask-JWT-Extended extension
 app.config["JWT_SECRET_KEY"] = "Dese.Decent.Pups.BOOYO0OST"  # Change this!
 jwt = JWTManager(app)
@@ -31,6 +34,7 @@ with app.app_context():
 
 api.add_resource(SignIn, '/api/signin')
 api.add_resource(Info, '/api/info')
+api.add_resource(GetUserList, '/api/users')
 
 if __name__ == '__main__':
     app.run(debug=True)  # important to mention debug=True
