@@ -3,9 +3,10 @@ from db import db, func, and_
 from flask_restful import Resource, reqparse
 from flask import jsonify
 from flask_jwt_extended import jwt_required
-from models import Project, Group, GroupUser, User
+from models import Project, Group, GroupUser, User, Ban, Setting
 from util.encoder import AlchemyEncoder
 from util.logz import create_logger
+from util.msg import MSG_FIELD_DEFAULT
 
 class GetGroupList(Resource):
     def __init__(self):
@@ -47,7 +48,6 @@ class GetGroupList(Resource):
             json_output.append(decoded_json)
 
         return jsonify(json_output)
-
 
 class GetGroupUserList(Resource):
     def __init__(self):
@@ -101,3 +101,103 @@ class GetGroupUserList(Resource):
             json_output.append(single_json)
         
         return json_output
+
+class GetGroupShillList(Resource):
+    def __init__(self):
+        self.logger = create_logger()
+
+    @jwt_required()  # Requires dat token
+    def get(self, group_id):
+        query = (
+            db.session.query(Project).filter_by(group_id=group_id).order_by(Project.created_at)
+        )
+        
+        results = query.all()
+        json_output = []
+        for result in results:
+            single_json = json.dumps(result, cls=AlchemyEncoder)
+            decoded_json = json.loads(single_json)
+            json_output.append(decoded_json)
+
+        return jsonify(json_output)
+
+class GetGroupBannedUserList(Resource):
+    def __init__(self):
+        self.logger = create_logger()
+
+    @jwt_required()  # Requires dat token
+    def get(self, group_id):
+        user_query = (
+            db.session.query(User)
+            .subquery()
+        )
+        
+        query = (
+            db.session.query(Ban.group_id, user_query.c).filter_by(group_id=group_id)
+            .outerjoin(user_query, Ban.user_id == user_query.c.user_id)
+        )
+        
+        results = query.all()
+        
+        json_output = []
+        for result in results:
+            print(result)
+            single_json = {
+                "user_id": result[4],
+                "fullname": result[2],
+                "username": result[3],
+                "group_id": result[0]
+            }
+            json_output.append(single_json)
+        
+        return json_output
+
+class GetGroupSetting(Resource):
+    def __init__(self):
+        self.logger = create_logger()
+        
+    parser = reqparse.RequestParser()
+    parser.add_argument('shill_mode', type=bool, required=True, help=MSG_FIELD_DEFAULT)
+    parser.add_argument('ban_mode', type=bool, required=True, help=MSG_FIELD_DEFAULT)
+
+    @jwt_required()  # Requires dat token
+    def get(self, group_id):
+        setting = Setting.query.filter_by(group_id=group_id).one_or_none()
+        if not setting:
+            setting = Setting(
+                group_id=group_id,
+                shill_mode=False,
+                ban_mode=False,
+            )
+            db.session.add(setting)
+            db.session.commit()
+        
+        single_json = json.dumps(setting, cls=AlchemyEncoder)
+        decoded_json = json.loads(single_json)
+        
+        return decoded_json
+    
+    @jwt_required()  # Requires dat token
+    def post(self, group_id):
+        data = GetGroupSetting.parser.parse_args()
+        shill_mode = data['shill_mode']
+        ban_mode = data['ban_mode']
+        
+        setting = Setting.query.filter_by(group_id=group_id).one_or_none()
+        if not setting:
+            setting = Setting(
+                group_id=group_id,
+                shill_mode=False,
+                ban_mode=False,
+            )
+            db.session.add(setting)
+            db.session.commit()
+        
+        setting.shill_mode = shill_mode
+        setting.ban_mode = ban_mode
+        db.session.commit()
+        
+        single_json = json.dumps(setting, cls=AlchemyEncoder)
+        decoded_json = json.loads(single_json)
+        
+        return decoded_json
