@@ -3,7 +3,8 @@ from db import db, func, and_
 from flask_restful import Resource, reqparse
 from flask import jsonify
 from flask_jwt_extended import jwt_required
-from models import Project, Group, GroupUser, User, Ban, Setting
+from models import Project, Group, GroupUser, User, Ban, Setting, Pair
+from helpers import price_format, multiple
 from util.encoder import AlchemyEncoder
 from util.logz import create_logger
 from util.msg import MSG_FIELD_DEFAULT
@@ -49,108 +50,99 @@ class GetGroupList(Resource):
 
         return jsonify(json_output)
 
-class GetGroupUserList(Resource):
+class GetGroupDetail(Resource):
     def __init__(self):
         self.logger = create_logger()
 
     @jwt_required()  # Requires dat token
     def get(self, group_id):
-        project_count_query = (
-            db.session.query(
-                Project.user_id,
-                func.count(Project.user_id).label("shill_count")
-            )
-            .group_by(Project.user_id)
-            .subquery()
+        group = Group.query.filter_by(group_id=group_id).one_or_none()
+        if not group:
+            return {'result': 'error', 'message': "group can not find"}
+        
+        pair_query = (
+            db.session.query(Pair.marketcap, Pair.pair_address).subquery()
         )
+        
+        project_query = (
+            db.session.query(Project, pair_query.c).filter_by(group_id=group_id)
+            .join(pair_query, Project.pair_address == pair_query.c.pair_address)
+            .order_by(Project.created_at)
+        )
+        
+        project_results = project_query.all()
+
+        total_project_count = Project.query.filter_by(group_id=group_id).count()
+        json_output = []
+        for latest_project in project_results:
+            single_json = json.dumps(latest_project[0], cls=AlchemyEncoder)
+            decoded_json = json.loads(single_json)
+            decoded_json['current_marketcap'] = latest_project[1]
+            json_output.append(decoded_json)
         
         user_query = (
-            db.session.query(User.fullname, User.username, User.user_id, project_count_query.c.shill_count)
-            .outerjoin(project_count_query, User.user_id == project_count_query.c.user_id)
-            .subquery()
-        )
-        
-        group_project_count_query = (
-            db.session.query(
-                Project.group_id,
-                Project.user_id,
-                func.count(Project.no).label("group_shill_count")
-            )
-            .group_by(Project.group_id, Project.user_id)
-            .subquery()
+            db.session.query(User.fullname, User.username, User.user_id, User.no).subquery()
         )
         
         query = (
-            db.session.query(GroupUser.group_id, user_query.c, group_project_count_query.c.group_shill_count).filter_by(group_id=group_id)
+            db.session.query(GroupUser.group_id, user_query.c).filter_by(group_id=group_id)
             .outerjoin(user_query, GroupUser.user_id == user_query.c.user_id)
-            .outerjoin(group_project_count_query, and_(group_project_count_query.c.user_id == GroupUser.user_id, group_project_count_query.c.group_id == group_id))
         )
         
         results = query.all()
+        group_users = []
         
-        json_output = []
         for result in results:
-            single_json = {
-                "group_id": result[0],
+            single_user = {
+                "no": result[4],
+                "user_id": result[3],
                 "fullname": result[1],
                 "username": result[2],
-                "user_id": result[3],
-                "total_shills": result[4],
-                "group_shills": result[5],
             }
-            json_output.append(single_json)
+            group_users.append(single_user)
         
-        return json_output
-
-class GetGroupShillList(Resource):
-    def __init__(self):
-        self.logger = create_logger()
-
-    @jwt_required()  # Requires dat token
-    def get(self, group_id):
-        query = (
-            db.session.query(Project).filter_by(group_id=group_id).order_by(Project.created_at)
-        )
-        
-        results = query.all()
-        json_output = []
-        for result in results:
-            single_json = json.dumps(result, cls=AlchemyEncoder)
-            decoded_json = json.loads(single_json)
-            json_output.append(decoded_json)
-
-        return jsonify(json_output)
-
-class GetGroupBannedUserList(Resource):
-    def __init__(self):
-        self.logger = create_logger()
-
-    @jwt_required()  # Requires dat token
-    def get(self, group_id):
-        user_query = (
-            db.session.query(User)
-            .subquery()
-        )
-        
-        query = (
+        ban_query = (
             db.session.query(Ban.group_id, user_query.c).filter_by(group_id=group_id)
             .outerjoin(user_query, Ban.user_id == user_query.c.user_id)
         )
         
-        results = query.all()
+        ban_results = ban_query.all()
         
-        json_output = []
-        for result in results:
-            print(result)
-            single_json = {
-                "user_id": result[4],
-                "fullname": result[2],
-                "username": result[3],
-                "group_id": result[0]
+        group_bans = []
+        
+        for result in ban_results:
+            single_ban = {
+                "user_id": result[3],
+                "fullname": result[1],
+                "username": result[2],
             }
-            json_output.append(single_json)
+            group_bans.append(single_ban)
         
-        return json_output
+        setting = Setting.query.filter_by(group_id=group_id).one_or_none()
+        if not setting:
+            setting = Setting(
+                group_id=group_id,
+                shill_mode=False,
+                ban_mode=False,
+            )
+            db.session.add(setting)
+            db.session.commit()
+        
+        single_json = json.dumps(setting, cls=AlchemyEncoder)
+        group_setting = json.loads(single_json)
+        
+        group_detail = {
+            "title": group.title,
+            "link": group.link,
+            "group_id": group.group_id,
+            "total_shills": total_project_count,
+            "latest_shills": json_output,
+            "users": group_users,
+            "bans": group_bans,
+            "setting": group_setting
+        }
+        
+        return group_detail
 
 class GetGroupSetting(Resource):
     def __init__(self):

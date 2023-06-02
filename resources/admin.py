@@ -1,7 +1,9 @@
+import json
 from flask_restful import Resource, reqparse
 from flask import jsonify
 from flask_jwt_extended import create_access_token, jwt_required, current_user
 from models import Admin
+from util.encoder import AlchemyEncoder
 from util.logz import create_logger
 
 class Info(Resource):
@@ -36,4 +38,10 @@ class SignIn(Resource):
             return {'message': 'Wrong username or password.'}, 401
         
         access_token = create_access_token(identity=user)
-        return jsonify(access_token=access_token)
+        return_user = {
+            "fullname": user.fullname,
+            "username": user.username,
+            "user_id": user.user_id,
+            "token": access_token
+        }
+        return jsonify(return_user)

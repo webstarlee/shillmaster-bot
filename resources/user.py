@@ -3,7 +3,7 @@ from db import db, func, and_
 from flask_restful import Resource, reqparse
 from flask import jsonify
 from flask_jwt_extended import jwt_required
-from models import GroupUser, Group, Project, User, Ban, Task
+from models import GroupUser, Group, Project, User, Ban, Task, Warn, Pair
 from util.encoder import AlchemyEncoder
 from util.logz import create_logger
 from util.msg import MSG_FIELD_DEFAULT
@@ -37,180 +37,134 @@ class GetUserList(Resource):
 
         return jsonify(json_output)
 
-class GetUserGroupList(Resource):
+class GetUserDetail(Resource):
     def __init__(self):
         self.logger = create_logger()
 
     @jwt_required()  # Requires dat token
     def get(self, user_id):
-        project_count_query = (
-            db.session.query(
-                Project.group_id,
-                func.count(Project.group_id).label("shill_count")
-            )
-            .group_by(Project.group_id)
-            .subquery()
+        user = User.query.filter_by(user_id=user_id).one_or_none()
+        if not user:
+            return {'result': 'error', 'message': "user can not find"}
+        
+        pair_query = (
+            db.session.query(Pair.marketcap, Pair.pair_address).subquery()
         )
         
-        user_count_query = (
-            db.session.query(
-                GroupUser.group_id,
-                func.count(GroupUser.group_id).label("user_count")
-            )
-            .group_by(GroupUser.group_id)
-            .subquery()
+        project_query = (
+            db.session.query(Project, pair_query.c).filter_by(user_id=user_id)
+            .join(pair_query, Project.pair_address == pair_query.c.pair_address)
+            .order_by(Project.created_at)
         )
         
-        banned_user_query = (
-            db.session.query(
-                Ban.group_id,
-                func.count(Ban.group_id).label("banned_user_count")
-            )
-            .group_by(Ban.group_id)
-            .subquery()
-        )
+        project_results = project_query.all()
+        
+        print(project_results)
+
+        total_project_count = Project.query.filter_by(user_id=user_id).count()
+        json_output = []
+        for latest_project in project_results:
+            single_json = json.dumps(latest_project[0], cls=AlchemyEncoder)
+            decoded_json = json.loads(single_json)
+            decoded_json['current_marketcap'] = latest_project[1]
+            json_output.append(decoded_json)
         
         group_query = (
-            db.session.query(Group.title, Group.link, Group.group_id, project_count_query.c.shill_count, user_count_query.c.user_count, banned_user_query.c.banned_user_count)
-            .outerjoin(project_count_query, Group.group_id == project_count_query.c.group_id)
-            .outerjoin(user_count_query, Group.group_id == user_count_query.c.group_id)
-            .outerjoin(banned_user_query, Group.group_id == banned_user_query.c.group_id)
-            .subquery()
-        )
-        
-        user_project_count_query = (
-            db.session.query(
-                Project.group_id,
-                Project.user_id,
-                func.count(Project.no).label("user_shill_count")
-            )
-            .group_by(Project.group_id, Project.user_id)
-            .subquery()
+            db.session.query(Group.title, Group.link, Group.group_id).subquery()
         )
         
         query = (
-            db.session.query(GroupUser.user_id, group_query.c, user_project_count_query.c.user_shill_count).filter_by(user_id=user_id)
+            db.session.query(GroupUser.user_id, group_query.c).filter_by(user_id=user_id)
             .outerjoin(group_query, GroupUser.group_id == group_query.c.group_id)
-            .outerjoin(user_project_count_query, and_(user_project_count_query.c.group_id == GroupUser.group_id, user_project_count_query.c.user_id == user_id))
         )
         
         results = query.all()
+        user_groups = []
         
-        json_output = []
         for result in results:
-            single_json = {
+            single_group = {
                 "group_id": result[3],
                 "title": result[1],
                 "link": result[2],
-                "user_id": result[0],
-                "user_shills": result[7],
-                "total_shills": result[4],
-                "total_users": result[5],
-                "banned_users": result[6],
             }
-            json_output.append(single_json)
+            user_groups.append(single_group)
         
-        return json_output
-
-class GetUserShillList(Resource):
-    def __init__(self):
-        self.logger = create_logger()
-
-    @jwt_required()  # Requires dat token
-    def get(self, user_id):
-        query = (
-            db.session.query(Project).filter_by(user_id=user_id).order_by(Project.created_at)
+        warn_query = (
+            db.session.query(Warn.user_id, Warn.count, group_query.c).filter_by(user_id=user_id)
+            .outerjoin(group_query, Warn.group_id == group_query.c.group_id)
         )
         
-        results = query.all()
-        json_output = []
-        for result in results:
-            single_json = json.dumps(result, cls=AlchemyEncoder)
-            decoded_json = json.loads(single_json)
-            json_output.append(decoded_json)
-
-        return jsonify(json_output)
-
-class GetUserBannedGroupList(Resource):
-    def __init__(self):
-        self.logger = create_logger()
-
-    @jwt_required()  # Requires dat token
-    def get(self, user_id):
-        project_count_query = (
-            db.session.query(
-                Project.group_id,
-                func.count(Project.group_id).label("shill_count")
-            )
-            .group_by(Project.group_id)
-            .subquery()
-        )
+        warn_results = warn_query.all()
         
-        user_count_query = (
-            db.session.query(
-                GroupUser.group_id,
-                func.count(GroupUser.group_id).label("user_count")
-            )
-            .group_by(GroupUser.group_id)
-            .subquery()
-        )
+        user_warns = []
         
-        banned_user_query = (
-            db.session.query(
-                Ban.group_id,
-                func.count(Ban.group_id).label("banned_user_count")
-            )
-            .group_by(Ban.group_id)
-            .subquery()
-        )
-        
-        group_query = (
-            db.session.query(Group.title, Group.link, Group.group_id, project_count_query.c.shill_count, user_count_query.c.user_count, banned_user_query.c.banned_user_count)
-            .outerjoin(project_count_query, Group.group_id == project_count_query.c.group_id)
-            .outerjoin(user_count_query, Group.group_id == user_count_query.c.group_id)
-            .outerjoin(banned_user_query, Group.group_id == banned_user_query.c.group_id)
-            .subquery()
-        )
-        
-        query = (
+        for result in warn_results:
+            single_warn = {
+                "group_id": result[4],
+                "title": result[2],
+                "link": result[3],
+                "count": result[1],
+            }
+            user_warns.append(single_warn)
+            
+        ban_query = (
             db.session.query(Ban.user_id, group_query.c).filter_by(user_id=user_id)
             .outerjoin(group_query, Ban.group_id == group_query.c.group_id)
         )
         
-        results = query.all()
+        ban_results = ban_query.all()
         
-        json_output = []
-        for result in results:
-            single_json = {
+        user_bans = []
+        
+        for result in ban_results:
+            single_ban = {
                 "group_id": result[3],
                 "title": result[1],
                 "link": result[2],
-                "user_id": result[0],
-                "total_shills": result[4],
-                "total_users": result[5],
-                "banned_users": result[6],
             }
-            json_output.append(single_json)
+            user_bans.append(single_ban)
+        
+        user_detail = {
+            "fullname": user.fullname,
+            "username": user.username,
+            "user_id": user.user_id,
+            "total_shills": total_project_count,
+            "latest_shills": json_output,
+            "groups": user_groups,
+            "warns": user_warns,
+            "bans": user_bans
+        }
+        
+        return user_detail
 
-        return jsonify(json_output)
-    
+class DeleteUserWarn(Resource):
+    def __init__(self):
+        self.logger = create_logger()
+
+    @jwt_required()  # Requires dat token
+    def delete(self, user_id, group_id):
+        warn = Warn.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+        
+        if not warn:
+            return {"result": "not exist"}
+
+        # Delete the row
+        db.session.delete(warn)
+
+        # Commit the transaction
+        db.session.commit()
+
+        return {"result": "success"}
+
 class SetUserUnban(Resource):
     def __init__(self):
         self.logger = create_logger()
 
-    parser = reqparse.RequestParser()
-    parser.add_argument('user_id', type=str, required=True, help=MSG_FIELD_DEFAULT)
-    parser.add_argument('group_id', type=str, required=True, help=MSG_FIELD_DEFAULT)
-    
-    @jwt_required()
-    def post(self):
-        data = SetUserUnban.parser.parse_args()
-        user_id = data['user_id']
-        group_id = data['group_id']
-
+    @jwt_required()  # Requires dat token
+    def get(self, user_id, group_id):
         ban = Ban.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
         if not ban:
-            return {'message': 'Wrong username or password.'}, 401
+            return {'message': 'Ban not found'}, 401
         
         exist_task = Task.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
         if not exist_task:
@@ -221,8 +175,9 @@ class SetUserUnban(Resource):
             )
             db.session.add(new_task)
             db.session.commit()
-            
-            return {"result": "success"}
+        
+        db.session.delete(ban)
+        db.session.commit()
         
         return {"result": "already exist task"}
 

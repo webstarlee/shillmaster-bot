@@ -1,13 +1,14 @@
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from flask_restful import Api
+from flask_cors import CORS
 from models import Admin
 from datetime import timedelta
 import resources
 from config import sql_config
-from helpers import admin_mysql
 
 app = Flask(__name__)
+CORS(app)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = sql_config
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -30,22 +31,18 @@ with app.app_context():
     from db import db
     db.init_app(app)
     db.create_all()
-    admin_mysql()
 
 api.add_resource(resources.SignIn, '/api/signin')
 api.add_resource(resources.Info, '/api/info')
 # User api part
 api.add_resource(resources.GetUserList, '/api/users')
-api.add_resource(resources.GetUserGroupList, '/api/user/<user_id>/groups')
-api.add_resource(resources.GetUserShillList, '/api/user/<user_id>/shills')
-api.add_resource(resources.GetUserBannedGroupList, '/api/user/<user_id>/bans')
-api.add_resource(resources.SetUserUnban, '/api/user/unban')
+api.add_resource(resources.GetUserDetail, '/api/user/<user_id>')
+api.add_resource(resources.DeleteUserWarn, '/api/user/<user_id>/<group_id>/warn')
+api.add_resource(resources.SetUserUnban, '/api/user/<user_id>/<group_id>/unban')
 api.add_resource(resources.SetUserBan, '/api/user/ban')
 # Group api part
 api.add_resource(resources.GetGroupList, '/api/groups')
-api.add_resource(resources.GetGroupUserList, '/api/group/<group_id>/users')
-api.add_resource(resources.GetGroupShillList, '/api/group/<group_id>/shills')
-api.add_resource(resources.GetGroupBannedUserList, '/api/group/<group_id>/bans')
+api.add_resource(resources.GetGroupDetail, '/api/group/<group_id>')
 api.add_resource(resources.GetGroupSetting, '/api/group/<group_id>/setting')
 
 if __name__ == '__main__':
