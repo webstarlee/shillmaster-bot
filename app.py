@@ -44,6 +44,8 @@ api.add_resource(resources.SetUserBan, '/api/user/ban')
 api.add_resource(resources.GetGroupList, '/api/groups')
 api.add_resource(resources.GetGroupDetail, '/api/group/<group_id>')
 api.add_resource(resources.GetGroupSetting, '/api/group/<group_id>/setting')
-
+# Project api part
+api.add_resource(resources.GetProjectList, '/api/projects')
+api.add_resource(resources.UpdateProject, '/api/project/update')
 if __name__ == '__main__':
     app.run(debug=True)  # important to mention debug=True
