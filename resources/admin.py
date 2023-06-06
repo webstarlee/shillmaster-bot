@@ -1,10 +1,12 @@
+from bson import json_util
 import json
 from flask_restful import Resource, reqparse
 from flask import jsonify
-from flask_jwt_extended import create_access_token, jwt_required, current_user
-from models import Admin, Ban, Group, Pair, Project, Setting, User, Warn
-from util.encoder import AlchemyEncoder
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from util.logz import create_logger
+from db import admins_collection
+from werkzeug.security import generate_password_hash, check_password_hash
+from util.parse_json import parse_json
 
 class Info(Resource):
     def __init__(self):
@@ -12,12 +14,12 @@ class Info(Resource):
 
     @jwt_required()  # Requires dat token
     def get(self):
-        # We can now access our sqlalchemy User object via `current_user`.
+        current_user = get_jwt_identity()
         return jsonify(
-            no=current_user.no,
-            fullname=current_user.fullname,
-            username=current_user.username,
-            user_id=current_user.user_id,
+            _id=current_user["_id"]["$oid"],
+            fullname=current_user["fullname"],
+            username=current_user["username"],
+            user_id=current_user["user_id"],
         )
 
 class SignIn(Resource):
@@ -33,9 +35,16 @@ class SignIn(Resource):
         username = data['username']
         password = data['password']
 
-        user = Admin.query.filter_by(username=username).one_or_none()
-        if not user or not user.check_password(password):
+        user = parse_json(admins_collection.find_one({"username": username}))
+        if not user or not check_password_hash(user['password'], password):
             return {'message': 'Wrong username or password.'}, 401
         
         access_token = create_access_token(identity=user)
-        return jsonify(access_token=access_token)
+        print(access_token)
+        return_user = {
+            "fullname": user["fullname"],
+            "username": user["username"],
+            "user_id": user["user_id"],
+            "token": access_token
+        }
+        return jsonify(return_user)

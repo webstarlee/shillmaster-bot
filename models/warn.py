@@ -9,4 +9,4 @@ class Warn(db.Model):
     count = db.Column(db.Integer, default=1)
 
     def __repr__(self):
-        return '<Warn %r: %r>' % self.user_id, self.group_id
+        return '<Warn %r: %r>' % (self.user_id, self.group_id)
