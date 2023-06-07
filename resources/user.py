@@ -1,12 +1,11 @@
 import json
-from db import db, func, and_
+import db
 from flask_restful import Resource, reqparse
 from flask import jsonify
 from flask_jwt_extended import jwt_required
-from models import GroupUser, Group, Project, User, Ban, Task, Warn, Pair
-from util.encoder import AlchemyEncoder
 from util.logz import create_logger
 from util.msg import MSG_FIELD_DEFAULT
+from util.parse_json import parse_json
 
 class GetUserList(Resource):
     def __init__(self):
@@ -14,28 +13,26 @@ class GetUserList(Resource):
 
     @jwt_required()  # Requires dat token
     def get(self):
-        project_query = (
-            db.session.query(
-                Project.user_id,
-                func.count(Project.user_id).label("shill_count")
-            )
-            .group_by(Project.user_id)
-            .subquery()
-        )
-        query = (
-            db.session.query(User, project_query.c.shill_count)
-            .outerjoin(project_query, User.user_id == project_query.c.user_id)
-        )
-        
-        results = query.all()
-        json_output = []
-        for result in results:
-            single_json = json.dumps(result[0], cls=AlchemyEncoder)
-            decoded_json = json.loads(single_json)
-            decoded_json['shills'] = result[1]
-            json_output.append(decoded_json)
-
-        return jsonify(json_output)
+        raw_users = db.User.aggregate([
+            {
+                "$lookup": {
+                    "from" : "projects",
+                    "localField": "user_id",
+                    "foreignField": "user_id",
+                    "as": "shills"
+                }
+            }
+        ])
+        users = []
+        for raw in raw_users:
+            users.append({
+                "_id": str(raw["_id"]),
+                "fullname": raw["fullname"],
+                "username": raw["username"],
+                "user_id": raw["user_id"],
+                "shills": len(raw["shills"])
+            })
+        return parse_json(users)
 
 class GetUserDetail(Resource):
     def __init__(self):
@@ -43,99 +40,137 @@ class GetUserDetail(Resource):
 
     @jwt_required()  # Requires dat token
     def get(self, user_id):
-        user = User.query.filter_by(user_id=user_id).one_or_none()
+        user = db.User.find_one({"user_id": user_id})
         if not user:
             return {'result': 'error', 'message': "user can not find"}
-        
-        pair_query = (
-            db.session.query(Pair.marketcap, Pair.pair_address).subquery()
-        )
-        
-        project_query = (
-            db.session.query(Project, pair_query.c).filter_by(user_id=user_id)
-            .join(pair_query, Project.pair_address == pair_query.c.pair_address)
-            .order_by(Project.created_at)
-        )
-        
-        project_results = project_query.all()
-        
-        print(project_results)
 
-        total_project_count = Project.query.filter_by(user_id=user_id).count()
-        json_output = []
-        for latest_project in project_results:
-            single_json = json.dumps(latest_project[0], cls=AlchemyEncoder)
-            decoded_json = json.loads(single_json)
-            decoded_json['current_marketcap'] = latest_project[1]
-            json_output.append(decoded_json)
-        
-        group_query = (
-            db.session.query(Group.title, Group.link, Group.group_id).subquery()
-        )
-        
-        query = (
-            db.session.query(GroupUser.user_id, group_query.c).filter_by(user_id=user_id)
-            .outerjoin(group_query, GroupUser.group_id == group_query.c.group_id)
-        )
-        
-        results = query.all()
-        user_groups = []
-        
-        for result in results:
-            single_group = {
-                "group_id": result[3],
-                "title": result[1],
-                "link": result[2],
+        raw_projects = db.Project.aggregate([
+            {
+                "$match": {
+                    "user_id": user_id
+                },
+            },
+            {
+
+                "$lookup": {
+                    "from": "pairs",
+                    "localField": "pair_address",
+                    "foreignField": "pair_address",
+                    "as": "pair"
+                },
+            },
+            {
+                "$unwind": {"path": "$pair"}
+            },
+            {
+                "$sort": {"created_at": 1}
             }
-            user_groups.append(single_group)
-        
-        warn_query = (
-            db.session.query(Warn.user_id, Warn.count, group_query.c).filter_by(user_id=user_id)
-            .outerjoin(group_query, Warn.group_id == group_query.c.group_id)
-        )
-        
-        warn_results = warn_query.all()
-        
-        user_warns = []
-        
-        for result in warn_results:
-            single_warn = {
-                "group_id": result[4],
-                "title": result[2],
-                "link": result[3],
-                "count": result[1],
+        ])
+        projects = []
+        for raw in raw_projects:
+            projects.append({
+                "_id": str(raw["_id"]),
+                "ath": raw["ath"],
+                "chain": raw["chain"],
+                "created_at": str(raw["created_at"]),
+                "group_id": raw["group_id"],
+                "marketcap": raw["marketcap"],
+                "pair_address": raw["pair_address"],
+                "pair_url": raw["pair_url"],
+                "status": raw["status"],
+                "symbol": raw["symbol"],
+                "token": raw["token"],
+                "user_id": raw["user_id"],
+                "current_marketcap": raw["pair"]["marketcap"]
+            })
+        raw_groups = db.GroupUser.aggregate([
+            {
+                "$match": {
+                    "user_id": user_id
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "groups",
+                    "localField": "group_id",
+                    "foreignField": "group_id",
+                    "as": "group"
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$group"
+                }
             }
-            user_warns.append(single_warn)
-            
-        ban_query = (
-            db.session.query(Ban.user_id, group_query.c).filter_by(user_id=user_id)
-            .outerjoin(group_query, Ban.group_id == group_query.c.group_id)
-        )
-        
-        ban_results = ban_query.all()
-        
-        user_bans = []
-        
-        for result in ban_results:
-            single_ban = {
-                "group_id": result[3],
-                "title": result[1],
-                "link": result[2],
+        ])
+        groups = []
+        for raw in raw_groups:
+            groups.append({
+                "group_id": raw["group"]["group_id"],
+                "title": raw["group"]["title"],
+            })
+
+        raw_warns = db.Warn.aggregate([
+            {
+                "$match": {"user_id":user_id}
+            },
+            {
+                "$lookup": {
+                    "from": "groups",
+                    "localField": "group_id",
+                    "foreignField": "group_id",
+                    "as": "group"
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$group"
+                }
             }
-            user_bans.append(single_ban)
-        
-        user_detail = {
-            "fullname": user.fullname,
-            "username": user.username,
-            "user_id": user.user_id,
-            "total_shills": total_project_count,
-            "latest_shills": json_output,
-            "groups": user_groups,
-            "warns": user_warns,
-            "bans": user_bans
-        }
-        
-        return user_detail
+        ])
+        warns = []
+        for raw in raw_warns:
+            warns.append({
+                "group_id": raw["group"]["group_id"],
+                "title": raw["group"]["title"],
+                "count": raw["count"]
+            })
+
+        raw_bans = db.Ban.aggregate([
+            {
+                "$match": {"user_id":user_id}
+            },
+            {
+                "$lookup": {
+                    "from": "groups",
+                    "localField": "group_id",
+                    "foreignField": "group_id",
+                    "as": "group"
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$group"
+                }
+            }
+        ])
+        bans = []
+        for raw in raw_bans:
+            bans.append({
+                "group_id": raw["group"]["group_id"],
+                "title": raw["group"]["title"],
+            })
+        return parse_json({
+            "fullname": user["fullname"],
+            "username": user["username"],
+            "user_id": user["user_id"],
+            "total_shills": len(projects),
+            "latest_shills": projects,
+            "groups": groups,
+            "warns": warns,
+            "bans": bans
+        })
+#        
 
 class DeleteUserWarn(Resource):
     def __init__(self):
@@ -143,17 +178,10 @@ class DeleteUserWarn(Resource):
 
     @jwt_required()  # Requires dat token
     def delete(self, user_id, group_id):
-        warn = Warn.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
-        
+        warn = db.Warn.find_one({"user_id": user_id, "group_id": group_id})
         if not warn:
             return {"result": "not exist"}
-
-        # Delete the row
-        db.session.delete(warn)
-
-        # Commit the transaction
-        db.session.commit()
-
+        db.Warn.find_one_and_delete({"user_id": user_id, "group_id": group_id})
         return {"result": "success"}
 
 class SetUserUnban(Resource):
@@ -162,24 +190,20 @@ class SetUserUnban(Resource):
 
     @jwt_required()  # Requires dat token
     def get(self, user_id, group_id):
-        ban = Ban.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+        ban = db.Ban.find_one({"user_id":user_id, "group_id": group_id})
+
         if not ban:
             return {'message': 'Ban not found'}, 401
-        
-        exist_task = Task.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+        else:
+            db.Ban.find_one_and_delete({"user_id":user_id, "group_id": group_id})
+
+        exist_task = db.Task.find_one({"user_id": user_id, "group_id": group_id})
         if not exist_task:
-            new_task = Task(
-                task="unban",
-                user_id=user_id,
-                group_id=group_id
-            )
-            db.session.add(new_task)
-            db.session.commit()
+            db.Task.insert_one({"task":"unban", "user_id": user_id, "group_id": group_id})
+        else:
+            return {"result": "already exist task"}
         
-        db.session.delete(ban)
-        db.session.commit()
-        
-        return {"result": "already exist task"}
+        return {"result": "success"}
 
 class SetUserBan(Resource):
     def __init__(self):
@@ -191,26 +215,20 @@ class SetUserBan(Resource):
     
     @jwt_required()
     def post(self):
-        data = SetUserUnban.parser.parse_args()
+        data = SetUserBan.parser.parse_args()
         user_id = data['user_id']
         group_id = data['group_id']
+        filter_query = {"user_id": user_id, "group_id": group_id}
 
-        ban = Ban.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+        ban = db.Ban.find_one(filter_query)
         if not ban:
-            is_group_user = GroupUser.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+            is_group_user = db["group_users"].find_one(filter_query)
             if not is_group_user:
                 return {"result": "error", "msg": "It is not Group User"}
             
-            exist_task = Task.query.filter_by(user_id=user_id).filter_by(group_id=group_id).one_or_none()
+            exist_task = db.Task.find_one(filter_query)
             if not exist_task:
-                new_task = Task(
-                    task="ban",
-                    user_id=user_id,
-                    group_id=group_id
-                )
-                db.session.add(new_task)
-                db.session.commit()
-                
+                db.Task.insert_one({"task":"ban", "user_id": user_id, "group_id": group_id})
                 return {"result": "success"}
-        
-        return {"result": "error", "msg": "Already exist task"}
+        else:
+            return {"result": "error", "msg": "Already exist task"}

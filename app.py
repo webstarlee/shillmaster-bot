@@ -4,8 +4,6 @@ from flask_restful import Api
 from flask_cors import CORS
 from datetime import timedelta
 import resources
-from config import sql_config
-from db import admins_collection
 from util.parse_json import parse_json
 
 app = Flask(__name__)
@@ -20,15 +18,17 @@ api = Api(app)
 api.add_resource(resources.SignIn, '/api/signin')
 api.add_resource(resources.Info, '/api/info')
 # User api part
-# api.add_resource(resources.GetUserList, '/api/users')
-# api.add_resource(resources.GetUserDetail, '/api/user/<user_id>')
-# api.add_resource(resources.DeleteUserWarn, '/api/user/<user_id>/<group_id>/warn')
-# api.add_resource(resources.SetUserUnban, '/api/user/<user_id>/<group_id>/unban')
-# api.add_resource(resources.SetUserBan, '/api/user/ban')
-# # Group api part
+api.add_resource(resources.GetUserList, '/api/users')
+api.add_resource(resources.GetUserDetail, '/api/user/<user_id>')
+api.add_resource(resources.DeleteUserWarn, '/api/user/<user_id>/<group_id>/warn')
+api.add_resource(resources.SetUserUnban, '/api/user/<user_id>/<group_id>/unban')
+api.add_resource(resources.SetUserBan, '/api/user/ban')
+# Group api part
 api.add_resource(resources.GetGroupList, '/api/groups')
 api.add_resource(resources.GetGroupDetail, '/api/group/<group_id>')
-# api.add_resource(resources.GetGroupSetting, '/api/group/<group_id>/setting')
+api.add_resource(resources.GetGroupSetting, '/api/group/<group_id>/setting')
+# Leader Board api part
+api.add_resource(resources.GetLeaderBoards, '/api/leaderboards')
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)  # important to mention debug=True

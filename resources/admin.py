@@ -4,7 +4,7 @@ from flask_restful import Resource, reqparse
 from flask import jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from util.logz import create_logger
-from db import admins_collection
+import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from util.parse_json import parse_json
 
@@ -35,7 +35,8 @@ class SignIn(Resource):
         username = data['username']
         password = data['password']
 
-        user = parse_json(admins_collection.find_one({"username": username}))
+        user = parse_json(db.Admin.find_one({"username": username}))
+
         if not user or not check_password_hash(user['password'], password):
             return {'message': 'Wrong username or password.'}, 401
         

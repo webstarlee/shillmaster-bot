@@ -1,9 +1,15 @@
 from pymongo import MongoClient
-client = MongoClient("mongodb://localhost:27017/") # your connection string
-db = client["shill-master_clone"]
+client = MongoClient("mongodb://mongo:KdE9BLz4D5jbp0QgLY8B@containers-us-west-171.railway.app:7783") # your connection string
+db = client["shillmaster"]
 
-admins_collection = db["admins"]
-users_collection = db["users"]
-groups_collection = db["groups"]
-group_users_collection = db["group_users"]
-
+Admin = db["admins"]
+User = db["users"]
+Group = db["groups"]
+GroupUser = db["group_users"]
+Warn = db["warns"]
+Ban = db["bans"]
+Pair = db["pairs"]
+Project = db["projects"]
+Setting = db["settings"]
+Task = db["tasks"]
+LeaderBoard = db["leaderboards"]
