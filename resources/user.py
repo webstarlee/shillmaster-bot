@@ -199,7 +199,7 @@ class SetUserUnban(Resource):
 
         exist_task = db.Task.find_one({"user_id": user_id, "group_id": group_id})
         if not exist_task:
-            db.Task.insert_one({"task":"unban", "user_id": user_id, "group_id": group_id})
+            db.Task.insert_one({"task":"unban", "user_id": int(user_id), "group_id": int(group_id)})
         else:
             return {"result": "already exist task"}
         
@@ -228,7 +228,7 @@ class SetUserBan(Resource):
             
             exist_task = db.Task.find_one(filter_query)
             if not exist_task:
-                db.Task.insert_one({"task":"ban", "user_id": user_id, "group_id": group_id})
+                db.Task.insert_one({"task":"ban", "user_id": int(user_id), "group_id": int(group_id)})
                 return {"result": "success"}
         else:
             return {"result": "error", "msg": "Already exist task"}
