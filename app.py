@@ -10,6 +10,7 @@ from config import sql_config
 app = Flask(__name__,
             static_folder = "./dist/assets",
             template_folder = "./dist")
+
 CORS(app)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = sql_config
