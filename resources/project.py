@@ -69,14 +69,16 @@ class GetProjectList(Resource):
         ]
         match_pipeline = [
              { 
-                    "$search": {
-                        "index": "default",
-                        "text": {
-                                "query": search,
-                                "path": ["chain", "ath"],
-                        }
-                    }
+                "$match": {
+                    "$or":[
+                        {"chain": { "$regex": f"{search}*" }},
+                        {"token": { "$regex": f"{search}*" }} ,
+                        {"pair_url": { "$regex": f"{search}*" }} ,
+                        {"pair_address": { "$regex": f"{search}*" }},
+                        {"symbol": { "$regex": f"{search}*" }}
+                    ]
                 }
+            }
         ]
 
         if search:
