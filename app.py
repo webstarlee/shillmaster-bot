@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 from flask_jwt_extended import JWTManager
 from flask_restful import Api
 from flask_cors import CORS
@@ -7,7 +7,9 @@ from datetime import timedelta
 import resources
 from config import sql_config
 
-app = Flask(__name__)
+app = Flask(__name__,
+            static_folder = "./dist/assets",
+            template_folder = "./dist")
 CORS(app)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = sql_config
@@ -47,5 +49,11 @@ api.add_resource(resources.GetGroupSetting, '/api/group/<group_id>/setting')
 # Project api part
 api.add_resource(resources.GetProjectList, '/api/projects')
 api.add_resource(resources.UpdateProject, '/api/project/update')
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def catch_all(path):
+    return render_template("index.html")
+
 if __name__ == '__main__':
     app.run(debug=True)  # important to mention debug=True
