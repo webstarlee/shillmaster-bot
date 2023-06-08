@@ -1,1 +1,1 @@
-sql_config = 'mysql+pymysql://root:55486@localhost/shillmaster'
+sql_config = 'mysql+pymysql://root:ppJ50ZGuXx1117kh2fiv@containers-us-west-47.railway.app:6993/shillmaster'
